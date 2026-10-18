@@ -64,7 +64,7 @@ B010 google_project_iam_policy.authoritative: is an authoritative IAM policy: it
 B011 google_sql_database_instance.open: authorizes 0.0.0.0/0 to connect
 ```
 
-`examples/good` is the module itself with dummy values. Its plan creates 30 resources and the policy finds nothing.
+`examples/good` is the module itself with dummy values. Its plan creates 31 resources and the policy finds nothing.
 
 ## The module
 
@@ -246,7 +246,7 @@ jobs:
 - **The module has `terraform test` runs** (`modules/baseline/tests`) with the google provider mocked: the defaults,
   the switches, the identities, and 24 bad inputs that every validation must refuse.
 - **Real plans.** CI plans `examples/good` and `examples/violating` with the real google provider 6.8.0 and checks
-  that the first has no violations and creates exactly 30 resources, and that the second produces exactly the report
+  that the first has no violations and creates exactly the 31 resources stated above, and that the second produces exactly the report
   above. If the provider ever shapes a plan differently from what the rules expect, that comparison fails.
 - **The policy catches a weakened module.** CI copies the module, switches off uniform bucket access, public access
   prevention, the sink's own writer identity and the seven enforced constraints, plans the copy, and expects exactly

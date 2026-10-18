@@ -113,9 +113,11 @@ jobs:
           scripts/check-plan.sh "$RUNNER_TEMP/good.json"
           creates=$(jq '[.resource_changes[] | select(.change.actions == ["create"])] | length' "$RUNNER_TEMP/good.json")
           total=$(jq '.resource_changes | length' "$RUNNER_TEMP/good.json")
-          echo "creates=${creates} total=${total}"
-          test "$creates" -eq 30
-          test "$total" -eq 30
+          stated=$(sed -n 's/.*Its plan creates \([0-9][0-9]*\) resources.*/\1/p' README.md)
+          echo "creates=${creates} total=${total} README says ${stated}"
+          test -n "$stated"
+          test "$creates" -eq "$stated"
+          test "$total" -eq "$stated"
       - name: The violating example is reported exactly as written down
         run: |
           set -euo pipefail
