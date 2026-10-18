@@ -193,6 +193,10 @@ scripts/check-plan.sh plan.json                    # lists violations; exit 0 no
 scripts/check-plan.sh plan.json --expect FILE      # succeed only when the report is exactly FILE
 ```
 
+Rules judge the value in the plan, so provider defaults count: with the google provider 6 a log sink that does not
+mention `unique_writer_identity` already plans `true` and passes B007, while with older providers the default was
+`false` and the same configuration would fail.
+
 From OPA directly, `data.baseline.deny` is a set of `{rule, resource, message}` objects and `data.baseline.report` is
 the sorted text. A file that is not a plan (an empty file, a state file, a typo in the path) is refused with exit
 status 2 instead of being reported as "no violations".
