@@ -109,6 +109,9 @@ resource "google_logging_project_sink" "shared" {
   project     = "demo-violations-1234"
   name        = "to-storage"
   destination = "storage.googleapis.com/demo-violations-1234-logs"
+
+  # The provider defaults this to true since version 6; older versions defaulted to false.
+  unique_writer_identity = false
 }
 
 resource "google_logging_project_exclusion" "audit" {
