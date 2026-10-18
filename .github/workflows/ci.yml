@@ -1,0 +1,138 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  TERRAFORM_VERSION: "1.9.8"
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - run: sudo scripts/install-opa.sh
+      - name: terraform fmt
+        run: terraform fmt -check -recursive -diff
+      - name: opa fmt and opa check
+        run: |
+          set -euo pipefail
+          opa fmt --list --fail policy
+          opa check --strict policy
+      - name: shellcheck
+        run: shellcheck scripts/*.sh
+      - name: actionlint
+        run: |
+          set -euo pipefail
+          v=1.7.7
+          base="https://github.com/rhysd/actionlint/releases/download/v${v}"
+          curl -fsSL -o "actionlint.tgz" "${base}/actionlint_${v}_linux_amd64.tar.gz"
+          curl -fsSL -o "checksums.txt" "${base}/actionlint_${v}_checksums.txt"
+          grep " actionlint_${v}_linux_amd64.tar.gz\$" checksums.txt | sed 's/ actionlint_.*/ actionlint.tgz/' | sha256sum -c -
+          tar -xzf actionlint.tgz actionlint
+          ./actionlint
+          ./actionlint examples/ci/plan-policy.yml
+
+  policy:
+    name: Policy tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: sudo scripts/install-opa.sh
+      - name: Unit tests, with every line of the policy executed
+        run: |
+          set -euo pipefail
+          opa test policy
+          opa test policy --coverage --threshold 100 > /dev/null
+      - name: The README is in step with the code
+        run: scripts/check-readme.sh
+      - name: The violating example has a line for every rule
+        run: |
+          set -euo pipefail
+          for id in $(opa eval --format raw --data policy/baseline.rego 'concat(" ", sort([id | some id, _ in data.baseline.rules]))'); do
+            grep -q "^${id} " examples/violating/expected.txt || { echo "::error::no line for ${id} in examples/violating/expected.txt"; exit 1; }
+          done
+      - name: check-plan.sh refuses what is not a plan
+        run: |
+          set -euo pipefail
+          echo '{}' > not-a-plan.json
+          status=0
+          scripts/check-plan.sh not-a-plan.json 2> err.txt || status=$?
+          test "$status" -eq 2
+          grep -q "does not look like" err.txt
+          status=0
+          scripts/check-plan.sh missing.json 2> err.txt || status=$?
+          test "$status" -eq 2
+
+  terraform:
+    name: Terraform and the policy on real plans
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+      - run: sudo scripts/install-opa.sh
+      - name: Pin the google provider to the lowest version the module allows
+        run: |
+          cat > modules/baseline/pin_override.tf <<'HCL'
+          terraform {
+            required_providers {
+              google = {
+                source  = "hashicorp/google"
+                version = "6.8.0"
+              }
+            }
+          }
+          HCL
+      - name: The module validates, and its tests pass (provider mocked, nothing planned for real)
+        run: |
+          set -euo pipefail
+          terraform -chdir=modules/baseline init -backend=false -input=false -no-color
+          terraform -chdir=modules/baseline validate -no-color
+          terraform -chdir=modules/baseline test -no-color
+      - name: The good example plans, creates what it should and breaks no rule
+        run: |
+          set -euo pipefail
+          scripts/plan-example.sh examples/good "$RUNNER_TEMP/good.json"
+          scripts/check-plan.sh "$RUNNER_TEMP/good.json"
+          creates=$(jq '[.resource_changes[] | select(.change.actions == ["create"])] | length' "$RUNNER_TEMP/good.json")
+          total=$(jq '.resource_changes | length' "$RUNNER_TEMP/good.json")
+          echo "creates=${creates} total=${total}"
+          test "$creates" -eq 30
+          test "$total" -eq 30
+      - name: The violating example is reported exactly as written down
+        run: |
+          set -euo pipefail
+          scripts/plan-example.sh examples/violating "$RUNNER_TEMP/violating.json"
+          scripts/check-plan.sh "$RUNNER_TEMP/violating.json" --expect examples/violating/expected.txt
+          status=0
+          scripts/check-plan.sh "$RUNNER_TEMP/violating.json" > "$RUNNER_TEMP/report.txt" || status=$?
+          test "$status" -eq 1
+      - name: A weakened copy of the module is caught
+        run: |
+          set -euo pipefail
+          weak="$RUNNER_TEMP/weak"
+          mkdir "$weak"
+          cp -r modules examples "$weak/"
+          find "$weak" \( -name .terraform -o -name .terraform.lock.hcl \) -prune -exec rm -rf {} +
+          sed -i -E 's/(uniform_bucket_level_access *=) true/\1 false/; s/(public_access_prevention *=) "enforced"/\1 "inherited"/; s/(unique_writer_identity *=) true/\1 false/' "$weak/modules/baseline/logging.tf"
+          sed -i -E 's/(enforce *=) "TRUE"/\1 "FALSE"/' "$weak/modules/baseline/org_policy.tf"
+          if diff -r modules "$weak/modules" > /dev/null; then echo "::error::the weakening changed nothing"; exit 1; fi
+          scripts/plan-example.sh "$weak/examples/good" "$RUNNER_TEMP/weak.json"
+          scripts/check-plan.sh "$RUNNER_TEMP/weak.json" --expect tests/weakened-module.expected.txt

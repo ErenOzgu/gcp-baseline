@@ -1,0 +1,19 @@
+B001 google_project_iam_member.owner: grants roles/owner; use the narrowest predefined or custom role
+B002 google_storage_bucket_iam_member.public: grants a role to allUsers, which is anyone on the internet
+B003 google_service_account_key.legacy: creates a service account key; use workload identity federation or an attached service account
+B004 google_storage_bucket.open: public_access_prevention is not "enforced"
+B004 google_storage_bucket.open: uniform_bucket_level_access is not true
+B005 google_compute_firewall.all_tcp: allows all tcp ports from 0.0.0.0/0
+B005 google_compute_firewall.rdp_range: allows tcp/3380-3400 (includes 3389) from 0.0.0.0/0
+B005 google_compute_firewall.ssh: allows tcp/22 from 0.0.0.0/0
+B006 google_billing_budget.quiet: has no threshold at or above 100 %
+B006 google_billing_budget.quiet: has no threshold at or below 50 %, so there is no early warning
+B006 google_billing_budget.quiet: names no notification target (a Pub/Sub topic or notification channels) in all_updates_rule
+B007 google_logging_project_exclusion.audit: excludes audit logs from the log router
+B007 google_logging_project_sink.shared: unique_writer_identity is not true: the sink shares a writer identity with every other sink of the project
+B008 google_org_policy_policy.keys: relaxes iam.disableServiceAccountKeyCreation
+B008 google_project_organization_policy.public_access: relaxes storage.publicAccessPrevention
+B009 google_compute_instance.bastion: has an external IP address (access_config); reach it through IAP or Cloud NAT instead
+B009 google_compute_instance.bastion: switches OS Login off (metadata enable-oslogin)
+B010 google_project_iam_policy.authoritative: is an authoritative IAM policy: it replaces every binding on the resource and can lock everyone out; use the _member resources
+B011 google_sql_database_instance.open: authorizes 0.0.0.0/0 to connect

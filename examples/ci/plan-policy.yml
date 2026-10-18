@@ -1,0 +1,36 @@
+# A pull request check for a repository that holds Terraform for Google Cloud: plan, then judge the plan.
+name: Plan policy
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  plan-policy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          repository: ErenOzgu/gcp-baseline
+          ref: main # pin this to a commit once you rely on it
+          path: gcp-baseline
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_wrapper: false
+      # Authenticate to Google Cloud here, for example with google-github-actions/auth and workload identity
+      # federation. A real plan needs read access to the project.
+      - name: Plan
+        run: |
+          set -euo pipefail
+          terraform init -input=false
+          terraform plan -input=false -lock=false -out="$RUNNER_TEMP/plan.bin"
+          terraform show -json "$RUNNER_TEMP/plan.bin" > "$RUNNER_TEMP/plan.json"
+      - name: Judge the plan
+        run: |
+          sudo gcp-baseline/scripts/install-opa.sh
+          gcp-baseline/scripts/check-plan.sh "$RUNNER_TEMP/plan.json"
+      # plan.json can contain secrets. Do not upload it as an artifact.

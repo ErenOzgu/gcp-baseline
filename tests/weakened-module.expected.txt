@@ -1,0 +1,10 @@
+B004 module.baseline.google_storage_bucket.audit: public_access_prevention is not "enforced"
+B004 module.baseline.google_storage_bucket.audit: uniform_bucket_level_access is not true
+B007 module.baseline.google_logging_project_sink.audit: unique_writer_identity is not true: the sink shares a writer identity with every other sink of the project
+B008 module.baseline.google_org_policy_policy.enforced["compute.disableSerialPortAccess"]: relaxes compute.disableSerialPortAccess
+B008 module.baseline.google_org_policy_policy.enforced["compute.requireOsLogin"]: relaxes compute.requireOsLogin
+B008 module.baseline.google_org_policy_policy.enforced["iam.disableServiceAccountKeyCreation"]: relaxes iam.disableServiceAccountKeyCreation
+B008 module.baseline.google_org_policy_policy.enforced["iam.disableServiceAccountKeyUpload"]: relaxes iam.disableServiceAccountKeyUpload
+B008 module.baseline.google_org_policy_policy.enforced["sql.restrictPublicIp"]: relaxes sql.restrictPublicIp
+B008 module.baseline.google_org_policy_policy.enforced["storage.publicAccessPrevention"]: relaxes storage.publicAccessPrevention
+B008 module.baseline.google_org_policy_policy.enforced["storage.uniformBucketLevelAccess"]: relaxes storage.uniformBucketLevelAccess
