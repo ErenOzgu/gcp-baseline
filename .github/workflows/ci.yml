@@ -122,7 +122,10 @@ jobs:
         run: |
           set -euo pipefail
           scripts/plan-example.sh examples/violating "$RUNNER_TEMP/violating.json"
-          scripts/check-plan.sh "$RUNNER_TEMP/violating.json" --expect examples/violating/expected.txt
+          scripts/check-plan.sh "$RUNNER_TEMP/violating.json" --expect examples/violating/expected.txt || {
+            jq -c '.resource_changes[] | select(.type == "google_logging_project_sink") | .change' "$RUNNER_TEMP/violating.json"
+            exit 1
+          }
           status=0
           scripts/check-plan.sh "$RUNNER_TEMP/violating.json" > "$RUNNER_TEMP/report.txt" || status=$?
           test "$status" -eq 1
